@@ -1,0 +1,39 @@
+parameters:
+  - name: TEMPLATE_DIR
+    type: string
+    default: "terraform-pipeline"
+  - name: MAIN_PIPELINE_DIR
+    type: string
+    default: ".azuredevops"
+
+variables:
+  - group: 'TERRAFORM_CI'
+  - name: isMaster
+    value: ${{ contains(variables['Build.SourceBranch'], 'master') }}
+  - name: shouldDeploy
+    value: ${{ and(not(contains(variables['Build.Reason'], 'PullRequest')), eq(variables.isMaster, 'true')) }}
+  - name: templatePath
+    value: "$(Build.SourcesDirectory)/${{parameters.MAIN_PIPELINE_DIR}}/${{parameters.TEMPLATE_DIR}}"
+  - name: pipelinePath
+    value: "$(Build.SourcesDirectory)/${{parameters.MAIN_PIPELINE_DIR}}"
+
+
+stages:
+
+- template: ./terraform-module-build.yml
+  parameters:
+    TERRAFORM_VERSION: $(terraform_version)
+    MODULE_PATH: '$(Build.SourcesDirectory)'
+    DOC_TEMPLATE_PATH: "$(templatePath)/doc"
+    PIPELINE_PATH: "$(pipelinePath)"
+
+
+- ${{ if eq(variables.isMaster, 'false') }}:   
+  - template: ./terraform-module-test.yml
+    parameters:
+      GO_VERSION: $(go_version)
+      MODULE_PATH: '$(Build.SourcesDirectory)/test'
+
+- ${{ if eq(variables.shouldDeploy, 'true') }}:   
+  - template: ./terraform-module-release.yml
+

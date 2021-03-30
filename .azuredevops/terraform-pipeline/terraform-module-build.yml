@@ -1,0 +1,74 @@
+parameters:
+  - name: TERRAFORM_VERSION
+    type: string
+    default: "latest"
+  - name: MODULE_PATH
+    type: string
+  - name: POOL
+    default: "ubuntu-latest"
+  - name: DOC_TEMPLATE_PATH
+    type: string
+    
+  - name: PIPELINE_PATH
+    type: string
+
+stages: 
+  - stage:  BUILD
+    pool:
+      vmImage: ${{ parameters.POOL}}
+    jobs:
+      - job: build
+
+        steps:
+          - checkout: self 
+            clean: true
+            persistCredentials: true
+          
+          - task: TerraformInstaller@0
+            displayName: 'Install terraform ${{ parameters.TERRAFORM_VERSION}}'
+            inputs:
+              terraformVersion: '${{ parameters.TERRAFORM_VERSION}}'
+          
+          - task: TerraformCLI@0
+            displayName: 'Terraform init'
+            inputs:
+              command: 'init'
+              commandOptions: '-input=false'
+              workingDirectory: '${{ parameters.MODULE_PATH}}'
+              allowTelemetryCollection: false
+
+          - task: TerraformCLI@0
+            displayName: 'Validate'
+            inputs:
+              command: 'validate'
+              workingDirectory: '${{ parameters.MODULE_PATH}}'
+              commandOptions: '-no-color'
+              allowTelemetryCollection: false
+          
+          - task: PowerShell@2
+            displayName: 'Write documentation'
+            inputs:
+              filePath: '${{ parameters.DOC_TEMPLATE_PATH}}/write_documentation.ps1'
+              workingDirectory: '${{ parameters.DOC_TEMPLATE_PATH}}'
+              arguments: '-source_branch $(Build.SourceBranchName) -root_path ${{ parameters.MODULE_PATH}} -doc_param_path ${{ parameters.DOC_TEMPLATE_PATH}}'
+
+          - task: CopyFiles@2
+            displayName: 'Prepare artifact'
+            inputs:
+              SourceFolder: '${{ parameters.MODULE_PATH}}'
+              Contents: |
+                **/?(*.json|*.tf|*.md|LICENCE)
+                !.git/**/*
+                !modules/**/test/*
+                !.terraform/**
+                !.azuredevops/**
+                !test/**
+              TargetFolder: '$(build.artifactstagingdirectory)'
+              CleanTargetFolder: true
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish artifact'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: 'terraform'
+              publishLocation: 'Container'

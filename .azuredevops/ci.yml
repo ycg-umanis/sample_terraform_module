@@ -1,0 +1,17 @@
+trigger:
+  branches:
+    include:
+      - master
+      - develop
+      - release/*
+      - features/*
+
+resources:
+  repositories:
+  - repository: github
+    type: github
+    name: ycg-umanis/mod_azu_naming
+    endpoint: ycg-umanis
+
+extends:
+  template: ./terraform-pipeline/terraform-module-ci.yml

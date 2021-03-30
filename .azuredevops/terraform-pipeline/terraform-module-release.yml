@@ -1,0 +1,42 @@
+parameters:
+  - name: POOL
+    default: "ubuntu-latest"
+
+stages: 
+- stage:  RELEASE
+  pool:
+    vmImage: ${{ parameters.POOL}}
+  jobs:
+  - job: release
+    steps:
+    - download: current
+      artifact: terraform
+    - checkout: github 
+      clean: true
+      persistCredentials: true
+
+    - task: Bash@3
+      displayName: "Clean old files"
+      inputs:
+        targetType: 'inline'
+        script: 'rm -r `ls | grep -v ".git"`'
+        workingDirectory: '$(Build.SourcesDirectory)'
+
+    - task: CopyFiles@2
+      displayName: "Copy artefacts"
+      inputs:
+        SourceFolder: '$(Pipeline.Workspace)/terraform'
+        Contents: '**'
+        TargetFolder: '$(Build.SourcesDirectory)'
+        OverWrite: true
+
+    - task: Bash@3
+      displayName: "Git push"
+      inputs:
+        targetType: 'inline'
+        script: |
+          git config user.name "AzureDevOps agent"
+          git add .
+          git commit -am "artefact release"
+          git push --force origin HEAD:main
+        workingDirectory: '$(Build.SourcesDirectory)'

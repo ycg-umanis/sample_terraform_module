@@ -1,0 +1,38 @@
+parameters:
+  - name: GO_VERSION
+    type: string
+    default: "1.16"
+  - name: MODULE_PATH
+    type: string
+    default: "$(Build.SourcesDirectory)/test"
+  - name: POOL
+    default: "ubuntu-latest"
+
+stages: 
+- stage:  TEST
+  pool:
+    vmImage: ${{ parameters.POOL}}
+  jobs:
+  - job: test
+    steps:
+    - checkout: self 
+      clean: true
+      persistCredentials: true
+
+    - task: GoTool@0
+      displayName: 'Install Go ${{ parameters.GO_VERSION}}'
+      inputs:
+        version: '${{ parameters.GO_VERSION}}'
+        
+    - task: Go@0
+      displayName: 'Install dependencies'
+      inputs:
+        command: 'get'
+        arguments: '-d -t'
+        workingDirectory: '${{ parameters.MODULE_PATH}}'
+
+    - task: Go@0
+      displayName: 'Run tests'
+      inputs:
+        command: 'test'
+        workingDirectory:  '${{ parameters.MODULE_PATH}}'
